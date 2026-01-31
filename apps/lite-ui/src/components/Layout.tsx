@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
-import { Settings, Activity, Search, FileText, Globe, Database, Bug, ChevronDown } from 'lucide-react';
+import { Settings, Activity, Search, FileText, Globe, Database, Bug, ChevronDown, Sparkles } from 'lucide-react';
 
 export const Layout: React.FC = () => {
-  const { apiKey, setApiKey, baseUrl, setBaseUrl } = useApi();
+  const { apiKey, setApiKey, baseUrl, setBaseUrl, pollingInterval, setPollingInterval } = useApi();
   const [showSettings, setShowSettings] = useState(false);
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -33,6 +33,10 @@ export const Layout: React.FC = () => {
               {/* Navigation */}
               <nav className="hidden md:flex md:space-x-2">
                 <NavLink to="/" className={navClass} end>
+                  <Sparkles size={18} />
+                  <span>Agent</span>
+                </NavLink>
+                <NavLink to="/dashboard" className={navClass}>
                   <Activity size={18} />
                   <span>Dashboard</span>
                 </NavLink>
@@ -102,6 +106,20 @@ export const Layout: React.FC = () => {
                     placeholder="fc-..."
                   />
                   <p className="mt-1 text-xs text-slate-400">Required if your instance has authentication enabled.</p>
+                </div>
+                <div>
+                  <label>Polling Interval</label>
+                  <select
+                    value={pollingInterval}
+                    onChange={(e) => setPollingInterval(Number(e.target.value))}
+                  >
+                    <option value={1000}>1 second (Fast)</option>
+                    <option value={2000}>2 seconds</option>
+                    <option value={5000}>5 seconds (Default)</option>
+                    <option value={10000}>10 seconds</option>
+                    <option value={30000}>30 seconds (Slow)</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-400">How often to refresh dashboard data.</p>
                 </div>
               </div>
             </div>

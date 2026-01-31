@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiContext';
 
 export const CrawlPage: React.FC = () => {
-  const { client } = useApi();
+  const { client, pollingInterval } = useApi();
   const [url, setUrl] = useState('');
   const [limit, setLimit] = useState(10);
   const [maxDepth, setMaxDepth] = useState(2);
@@ -22,12 +22,12 @@ export const CrawlPage: React.FC = () => {
     let interval: any;
     if (jobId) {
       checkStatus(jobId);
-      interval = setInterval(() => checkStatus(jobId), 2000);
+      interval = setInterval(() => checkStatus(jobId), pollingInterval);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [jobId]);
+  }, [jobId, pollingInterval]);
 
   const checkStatus = async (id: string) => {
     try {

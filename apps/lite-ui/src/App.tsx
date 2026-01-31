@@ -7,6 +7,8 @@ import { CrawlPage } from './pages/CrawlPage';
 import { MapPage } from './pages/MapPage';
 import { SearchPage } from './pages/SearchPage';
 import { ExtractPage } from './pages/ExtractPage';
+import { AgentPage } from './pages/AgentPage';
+import { JobDetailsPage } from './pages/JobDetailsPage';
 
 function App() {
   return (
@@ -14,12 +16,14 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<AgentPage />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="scrape" element={<ScrapePage />} />
             <Route path="crawl" element={<CrawlPage />} />
             <Route path="map" element={<MapPage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="extract" element={<ExtractPage />} />
+            <Route path="job/:id" element={<JobDetailsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

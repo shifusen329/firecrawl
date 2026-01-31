@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
 
 export const ExtractPage: React.FC = () => {
   const { client } = useApi();
-  const [urls, setUrls] = useState('');
+  const location = useLocation();
+  const [urls, setUrls] = useState(location.state?.urls || '');
   const [prompt, setPrompt] = useState('');
   const [schema, setSchema] = useState('');
+  const [translate, setTranslate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -24,11 +27,16 @@ export const ExtractPage: React.FC = () => {
         }
     }
 
+    let finalPrompt = prompt;
+    if (translate) {
+      finalPrompt = (finalPrompt ? finalPrompt + "\n\n" : "") + "IMPORTANT: Translate all extracted content into English.";
+    }
+
     try {
-      const urlList = urls.split(',').map(u => u.trim()).filter(u => u);
+      const urlList = urls.split(',').map((u: string) => u.trim()).filter((u: string) => u);
       const response = await client.post('/extract', {
         urls: urlList,
-        prompt: prompt || undefined,
+        prompt: finalPrompt || undefined,
         schema: parsedSchema
       });
       setResult(response);
@@ -67,6 +75,18 @@ export const ExtractPage: React.FC = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
+              <div className="mt-2 flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="translate" 
+                  checked={translate} 
+                  onChange={(e) => setTranslate(e.target.checked)}
+                  className="rounded border-slate-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+                />
+                <label htmlFor="translate" className="!mb-0 !text-slate-600 font-normal normal-case cursor-pointer select-none">
+                  Translate content to English
+                </label>
+              </div>
             </div>
 
             <div>

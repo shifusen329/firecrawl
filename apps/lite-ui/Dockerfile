@@ -12,6 +12,10 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Accept build arguments
+ARG VITE_DEFAULT_API_KEY
+ENV VITE_DEFAULT_API_KEY=$VITE_DEFAULT_API_KEY
+
 # Build the application
 RUN npm run build
 

@@ -1,24 +1,18 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
-import { RefreshCw, Trash2, Coins, Key, Activity } from 'lucide-react';
+import { RefreshCw, Trash2, Activity } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
-  const { client } = useApi();
-  const [creditUsage, setCreditUsage] = useState<any>(null);
-  const [tokenUsage, setTokenUsage] = useState<any>(null);
+  const { client, pollingInterval } = useApi();
   const [activeCrawls, setActiveCrawls] = useState<any[]>([]);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
     setRefreshing(true);
-    // Remove setError('') from here to avoid flashing if one succeeds
     
     try {
-      // Fetch everything individually so one failure doesn't kill the dashboard
-      client.get('/team/credit-usage').then(res => setCreditUsage(res.data)).catch(e => console.warn("Credits fail:", e));
-      client.get('/team/token-usage').then(res => setTokenUsage(res.data)).catch(e => console.warn("Tokens fail:", e));
-      
       const crawls = await client.get('/crawl/active');
       console.log("Active Crawls:", crawls);
       if (crawls.success) {
@@ -37,9 +31,9 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, pollingInterval);
     return () => clearInterval(interval);
-  }, []);
+  }, [pollingInterval]);
 
   const cancelCrawl = async (id: string) => {
     if (!confirm('Are you sure you want to cancel this crawl?')) return;
@@ -75,22 +69,22 @@ export const Dashboard: React.FC = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <StatsCard 
-          title="Remaining Credits" 
-          value={creditUsage ? creditUsage.remaining_credits?.toLocaleString() : '---'} 
-          icon={<Coins size={24} className="text-orange-600" />}
-          loading={refreshing && !creditUsage}
-        />
-        <StatsCard 
-          title="Remaining Tokens" 
-          value={tokenUsage ? tokenUsage.remaining_tokens?.toLocaleString() : '---'} 
-          icon={<Key size={24} className="text-blue-600" />}
-          loading={refreshing && !tokenUsage}
-        />
-        <StatsCard 
-          title="Active Crawls" 
+          title="Total Jobs" 
           value={activeCrawls.length} 
-          icon={<Activity size={24} className="text-green-600" />}
-          loading={refreshing && !activeCrawls}
+          icon={<Activity size={24} className="text-blue-600" />}
+          loading={refreshing && activeCrawls.length === 0}
+        />
+        <StatsCard 
+          title="Completed" 
+          value={activeCrawls.filter(c => c.status === 'completed').length} 
+          icon={<div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-green-600">✓</div>}
+          loading={refreshing && activeCrawls.length === 0}
+        />
+        <StatsCard 
+          title="Processing / Failed" 
+          value={activeCrawls.filter(c => c.status !== 'completed').length} 
+          icon={<div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">⚡</div>}
+          loading={refreshing && activeCrawls.length === 0}
         />
       </div>
 
@@ -117,9 +111,9 @@ export const Dashboard: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">
+                      <Link to={`/job/${crawl.id}`} className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-900 transition-colors">
                         {crawl.id.substring(0, 8)}...
-                      </span>
+                      </Link>
                       <a href={crawl.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-900 hover:text-orange-600 transition-colors truncate max-w-md">
                         {crawl.url}
                       </a>
@@ -140,6 +134,10 @@ export const Dashboard: React.FC = () => {
             ))
           )}
         </ul>
+      </div>
+
+      <div className="text-center text-xs text-slate-400 mt-8">
+        Connected to: <span className="font-mono">{client.getEndpointBaseUrl()}</span>
       </div>
     </div>
   );

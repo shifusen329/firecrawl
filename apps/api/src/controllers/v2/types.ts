@@ -647,7 +647,7 @@ addFormats(agentAjv);
 const extractOptions = z
   .strictObject({
     urls: URL.array()
-      .max(10, "Maximum of 10 URLs allowed per request while in beta.")
+      .max(1000, "Maximum of 1000 URLs allowed per request.")
       .optional(),
     prompt: z.string().max(10000).optional(),
     systemPrompt: z.string().max(10000).optional(),
