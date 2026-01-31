@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+
+  /* Headings */
+  h1, h2, h3, h4 {
+    @apply text-slate-900 font-semibold tracking-tight;
+  }
+
+  /* Form Elements */
+  label {
+    @apply block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5;
+  }
+
+  input[type="text"], 
+  input[type="number"], 
+  input[type="password"], 
+  textarea, 
+  select {
+    @apply w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm shadow-sm
+    placeholder:text-slate-400
+    focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500
+    transition-colors duration-200;
+  }
+
+  textarea {
+    @apply min-h-[100px];
+  }
+
+  /* Buttons */
+  button.primary {
+    @apply inline-flex justify-center items-center px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg shadow-sm
+    hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500
+    disabled:opacity-50 disabled:cursor-not-allowed
+    transition-all duration-200;
+  }
+
+  button.secondary {
+    @apply inline-flex justify-center items-center px-4 py-2 bg-white text-slate-700 border border-slate-300 text-sm font-medium rounded-lg shadow-sm
+    hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500
+    disabled:opacity-50 disabled:cursor-not-allowed
+    transition-all duration-200;
+  }
+
+  /* Preformatted text / Code blocks */
+  pre {
+    @apply font-mono text-xs leading-relaxed;
+  }
+}
