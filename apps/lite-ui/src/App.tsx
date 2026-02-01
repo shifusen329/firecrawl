@@ -16,13 +16,13 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<AgentPage />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route index element={<Dashboard />} />
             <Route path="scrape" element={<ScrapePage />} />
             <Route path="crawl" element={<CrawlPage />} />
             <Route path="map" element={<MapPage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="extract" element={<ExtractPage />} />
+            <Route path="agent" element={<AgentPage />} />
             <Route path="job/:id" element={<JobDetailsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

@@ -1189,6 +1189,21 @@ export type OngoingCrawlsResponse =
         id: string;
         teamId: string;
         url: string;
+        status: "active";
+        created_at: string;
+        options: CrawlerOptions;
+      }[];
+    };
+
+export type CompletedCrawlsResponse =
+  | ErrorResponse
+  | {
+      success: true;
+      crawls: {
+        id: string;
+        teamId: string;
+        url: string;
+        status: "completed";
         created_at: string;
         options: CrawlerOptions;
       }[];

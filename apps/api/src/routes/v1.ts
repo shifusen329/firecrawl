@@ -25,6 +25,11 @@ import { deepResearchController } from "../controllers/v1/deep-research";
 import { deepResearchStatusController } from "../controllers/v1/deep-research-status";
 import { tokenUsageController } from "../controllers/v1/token-usage";
 import { ongoingCrawlsController } from "../controllers/v1/crawl-ongoing";
+import { completedCrawlsController } from "../controllers/v1/crawl-completed";
+import { mapHistoryController } from "../controllers/v1/map-history";
+import { searchHistoryController } from "../controllers/v1/search-history";
+import { deepResearchHistoryController } from "../controllers/v1/deep-research-history";
+import { extractHistoryController } from "../controllers/v1/extract-history";
 import {
   authMiddleware,
   checkCreditsMiddleware,
@@ -158,6 +163,31 @@ v1Router.post(
   wrap(mapController),
 );
 
+// History endpoints for lite-ui
+v1Router.get(
+  "/map/history",
+  authMiddleware(RateLimiterMode.CrawlStatus),
+  wrap(mapHistoryController),
+);
+
+v1Router.get(
+  "/search/history",
+  authMiddleware(RateLimiterMode.CrawlStatus),
+  wrap(searchHistoryController),
+);
+
+v1Router.get(
+  "/deep-research/history",
+  authMiddleware(RateLimiterMode.CrawlStatus),
+  wrap(deepResearchHistoryController),
+);
+
+v1Router.get(
+  "/extract/history",
+  authMiddleware(RateLimiterMode.CrawlStatus),
+  wrap(extractHistoryController),
+);
+
 v1Router.get(
   "/crawl/ongoing",
   authMiddleware(RateLimiterMode.CrawlStatus),
@@ -169,6 +199,12 @@ v1Router.get(
   "/crawl/active",
   authMiddleware(RateLimiterMode.CrawlStatus),
   wrap(ongoingCrawlsController),
+);
+
+v1Router.get(
+  "/crawl/completed",
+  authMiddleware(RateLimiterMode.CrawlStatus),
+  wrap(completedCrawlsController),
 );
 
 v1Router.get(

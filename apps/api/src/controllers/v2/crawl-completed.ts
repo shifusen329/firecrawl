@@ -1,19 +1,17 @@
 import { Response } from "express";
 import {
-  OngoingCrawlsResponse,
   RequestWithAuth,
+  CompletedCrawlsResponse,
   toV2CrawlerOptions,
 } from "./types";
 import { getCrawl } from "../../lib/crawl-redis";
-import { configDotenv } from "dotenv";
 import { crawlGroup } from "../../services/worker/nuq";
-configDotenv();
 
-export async function ongoingCrawlsController(
-  req: RequestWithAuth<{}, undefined, OngoingCrawlsResponse>,
-  res: Response<OngoingCrawlsResponse>,
+export async function completedCrawlsController(
+  req: RequestWithAuth<{}, undefined, CompletedCrawlsResponse>,
+  res: Response<CompletedCrawlsResponse>,
 ) {
-  const ids = (await crawlGroup.getOngoingByOwner(req.auth.team_id)).map(
+  const ids = (await crawlGroup.getCompletedByOwner(req.auth.team_id)).map(
     x => x.id,
   );
 
@@ -27,7 +25,7 @@ export async function ongoingCrawlsController(
       id: x.id,
       teamId: x.team_id!,
       url: x.originUrl!,
-      status: "active",
+      status: "completed",
       created_at: new Date(x.createdAt || Date.now()).toISOString(),
       options: {
         ...toV2CrawlerOptions(x.crawlerOptions),

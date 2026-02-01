@@ -33,10 +33,6 @@ export const Layout: React.FC = () => {
               {/* Navigation */}
               <nav className="hidden md:flex md:space-x-2">
                 <NavLink to="/" className={navClass} end>
-                  <Sparkles size={18} />
-                  <span>Agent</span>
-                </NavLink>
-                <NavLink to="/dashboard" className={navClass}>
                   <Activity size={18} />
                   <span>Dashboard</span>
                 </NavLink>
@@ -60,6 +56,10 @@ export const Layout: React.FC = () => {
                 <NavLink to="/extract" className={navClass}>
                   <Bug size={18} />
                   <span>Extract</span>
+                </NavLink>
+                <NavLink to="/agent" className={navClass}>
+                  <Sparkles size={18} />
+                  <span>Agent</span>
                 </NavLink>
               </nav>
             </div>

@@ -8,7 +8,7 @@ export const ExtractPage: React.FC = () => {
   const [urls, setUrls] = useState(location.state?.urls || '');
   const [prompt, setPrompt] = useState('');
   const [schema, setSchema] = useState('');
-  const [translate, setTranslate] = useState(false);
+  const [optimize, setOptimize] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -28,8 +28,17 @@ export const ExtractPage: React.FC = () => {
     }
 
     let finalPrompt = prompt;
-    if (translate) {
-      finalPrompt = (finalPrompt ? finalPrompt + "\n\n" : "") + "IMPORTANT: Translate all extracted content into English.";
+    if (optimize) {
+      const instructions = `
+IMPORTANT INSTRUCTIONS FOR LLM CONTEXT OPTIMIZATION:
+1. Translate all content to English.
+2. Format output as clean, concise Markdown.
+3. REMOVE all hyperlinks (keep the anchor text, strip the URL).
+4. Fix broken formatting, weird whitespace, and artifacts.
+5. Correctly handle nested code blocks (e.g. use 4 backticks for outer blocks if inner blocks exist).
+6. Optimize for Token Efficiency: Remove navigation menus, footers, ads, and redundant filler. Keep only context-relevant information.
+`;
+      finalPrompt = (finalPrompt ? finalPrompt + "\n" : "") + instructions;
     }
 
     try {
@@ -75,17 +84,22 @@ export const ExtractPage: React.FC = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-3 flex items-start gap-2 p-3 bg-orange-50 border border-orange-100 rounded-lg">
                 <input 
                   type="checkbox" 
-                  id="translate" 
-                  checked={translate} 
-                  onChange={(e) => setTranslate(e.target.checked)}
-                  className="rounded border-slate-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+                  id="optimize" 
+                  checked={optimize} 
+                  onChange={(e) => setOptimize(e.target.checked)}
+                  className="mt-1 rounded border-orange-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
                 />
-                <label htmlFor="translate" className="!mb-0 !text-slate-600 font-normal normal-case cursor-pointer select-none">
-                  Translate content to English
-                </label>
+                <div>
+                  <label htmlFor="optimize" className="!mb-0 !text-orange-900 font-medium cursor-pointer select-none">
+                    Optimize for LLM Context
+                  </label>
+                  <p className="text-xs text-orange-700/80 mt-0.5 leading-relaxed">
+                    Translates to English, removes links, fixes nested code blocks, and strips token-wasting fluff.
+                  </p>
+                </div>
               </div>
             </div>
 

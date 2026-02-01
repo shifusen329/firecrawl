@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApi } from '../context/ApiContext';
 import { useNavigate } from 'react-router-dom';
-import { Database, ArrowRight, Sparkles, Bug, Copy, Check, FileText } from 'lucide-react';
+import { Database, ArrowRight, Sparkles, Bug, Copy, Check, FileText, RefreshCw } from 'lucide-react';
 
 export const MapPage: React.FC = () => {
   const { client } = useApi();
@@ -11,6 +11,27 @@ export const MapPage: React.FC = () => {
   const [result, setResult] = useState<any>(null);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Fetch history from API on mount
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await client.get('/map/history');
+      if (response.success && Array.isArray(response.data)) {
+        setHistory(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch map history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const handleMap = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +41,8 @@ export const MapPage: React.FC = () => {
     try {
       const response = await client.post('/map', { url });
       setResult(response);
+      // Refresh history from database after successful map
+      fetchHistory();
       // Auto-select all by default if links are found
       if (response.links && Array.isArray(response.links)) {
         setSelectedUrls(new Set(response.links));
@@ -61,7 +84,7 @@ export const MapPage: React.FC = () => {
   };
 
   const sendToAgent = () => {
-    navigate('/', { state: { contextUrls: Array.from(selectedUrls) } });
+    navigate('/agent', { state: { contextUrls: Array.from(selectedUrls) } });
   };
 
   const sendToExtract = () => {
@@ -72,6 +95,13 @@ export const MapPage: React.FC = () => {
     navigator.clipboard.writeText(Array.from(selectedUrls).join('\n'));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const loadHistory = (entry: any) => {
+    // Pre-fill the URL from history entry (results are not stored in DB)
+    setUrl(entry.url || '');
+    setResult(null);
+    setSelectedUrls(new Set());
   };
 
   const links = getLinks();
@@ -117,6 +147,43 @@ export const MapPage: React.FC = () => {
             Mapping discovers all accessible pages on a website without downloading their content. 
             Use the results to feed the Agent or Extractor.
           </p>
+        </div>
+
+        <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold text-slate-900 text-sm">History</h4>
+            <button
+              onClick={fetchHistory}
+              disabled={historyLoading}
+              className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+            >
+              <RefreshCw size={12} className={historyLoading ? 'animate-spin' : ''} />
+              {historyLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+          {historyLoading && history.length === 0 ? (
+            <p className="text-xs text-slate-500">Loading history...</p>
+          ) : history.length === 0 ? (
+            <p className="text-xs text-slate-500">No previous maps yet.</p>
+          ) : (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {history.map(entry => (
+                <button
+                  key={entry.id}
+                  onClick={() => loadHistory(entry)}
+                  className="w-full text-left p-2 rounded-lg border border-slate-200 hover:border-orange-300 hover:bg-orange-50/40 transition-colors"
+                >
+                  <div className="text-xs font-medium text-slate-800 truncate">{entry.url || 'Unknown URL'}</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] text-slate-500">{new Date(entry.created_at).toLocaleString()}</span>
+                    {entry.num_results !== undefined && (
+                      <span className="text-[10px] text-slate-400">{entry.num_results} links</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

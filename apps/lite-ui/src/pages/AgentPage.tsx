@@ -1,19 +1,74 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
-import { Sparkles, Plus, FileJson, ArrowRight, Loader2, Globe, ListChecks } from 'lucide-react';
+import { Sparkles, Plus, FileJson, ArrowRight, Loader2, Globe, ListChecks, RefreshCw, History } from 'lucide-react';
 
 export const AgentPage: React.FC = () => {
   const { client, pollingInterval } = useApi();
   const location = useLocation();
+  const sessionStorageKey = 'firecrawl_agent_current_session';
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [contextUrls, setContextUrls] = useState<string[]>(location.state?.contextUrls || []);
+  const [prefillContext, setPrefillContext] = useState<string>(location.state?.prefillContext || '');
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Fetch sessions history from API on mount
+  useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const response = await client.get('/deep-research/history');
+      if (response.success && Array.isArray(response.data)) {
+        setSessions(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch agent sessions:', err);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  // Load current session state from sessionStorage (for page refresh persistence)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(sessionStorageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.query) setQuery(saved.query);
+      if (saved.jobId) setJobId(saved.jobId);
+      if (saved.status) setStatus(saved.status);
+      if (Array.isArray(saved.contextUrls)) setContextUrls(saved.contextUrls);
+      if (saved.prefillContext) setPrefillContext(saved.prefillContext);
+      if (typeof saved.startTime === 'number') setStartTime(saved.startTime);
+    } catch {
+      sessionStorage.removeItem(sessionStorageKey);
+    }
+  }, []);
+
+  // Save current session state to sessionStorage
+  useEffect(() => {
+    const payload = {
+      query,
+      jobId,
+      status,
+      contextUrls,
+      prefillContext,
+      startTime,
+    };
+    sessionStorage.setItem(sessionStorageKey, JSON.stringify(payload));
+  }, [query, jobId, status, contextUrls, prefillContext, startTime]);
 
   const runAgent = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -21,11 +76,16 @@ export const AgentPage: React.FC = () => {
 
     setLoading(true);
     setStatus(null);
-    
-    // Append context URLs to the query if present
+    setStartTime(Date.now());
+    setElapsedSeconds(0);
+
+    // Append context URLs and prefill context to the query if present
     let finalQuery = query;
     if (contextUrls.length > 0) {
       finalQuery += `\n\nContext URLs to consider:\n${contextUrls.map(u => `- ${u}`).join('\n')}`;
+    }
+    if (prefillContext) {
+      finalQuery += `\n\n--- Documentation Context ---\n${prefillContext}`;
     }
 
     try {
@@ -36,13 +96,17 @@ export const AgentPage: React.FC = () => {
       });
       if (response.id) {
         setJobId(response.id);
-        const newSession = { id: response.id, query, timestamp: new Date().toISOString() };
-        setSessions([newSession, ...sessions]);
+        // Refresh sessions from database
+        fetchSessions();
       } else {
         setStatus(response);
+        setStartTime(null);
+        setElapsedSeconds(0);
       }
     } catch (err) {
       setStatus({ error: 'Failed to start agent', details: err });
+      setStartTime(null);
+      setElapsedSeconds(0);
     } finally {
       setLoading(false);
     }
@@ -74,6 +138,17 @@ export const AgentPage: React.FC = () => {
     e.target.value = '';
   };
 
+  const loadSession = (session: any) => {
+    // Load a previous session by its ID
+    setJobId(session.id);
+    setQuery(session.query || '');
+    setStatus(null);
+    setContextUrls([]);
+    setPrefillContext('');
+    setStartTime(null);
+    setShowHistory(false);
+  };
+
   useEffect(() => {
     let interval: any;
     if (jobId) {
@@ -90,6 +165,19 @@ export const AgentPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [jobId, pollingInterval]);
 
+  useEffect(() => {
+    if (!startTime) return;
+    const updateElapsed = () => {
+      setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    };
+    updateElapsed();
+    if (status?.data?.status === 'completed' || status?.data?.status === 'failed') {
+      return;
+    }
+    const timer = setInterval(updateElapsed, 1000);
+    return () => clearInterval(timer);
+  }, [startTime, status?.data?.status]);
+
   const suggestions = [
     "Get the founders of Firecrawl, Pylon, and Mintlify",
     "Market cap, P/E ratio, profit margin for Apple, Microsoft, Google",
@@ -104,10 +192,60 @@ export const AgentPage: React.FC = () => {
             <div className="w-2 h-6 bg-orange-500 rounded-full"></div>
             Agent Session
           </h2>
-          <button onClick={() => { setJobId(null); setStatus(null); setQuery(''); setContextUrls([]); }} className="secondary py-1 text-xs">
-            <Plus size={14} className="mr-1" /> New Session
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="secondary py-1 text-xs"
+            >
+              <History size={14} className="mr-1" /> History
+            </button>
+            <button onClick={() => { setJobId(null); setStatus(null); setQuery(''); setContextUrls([]); setPrefillContext(''); setStartTime(null); setElapsedSeconds(0); sessionStorage.removeItem(sessionStorageKey); }} className="secondary py-1 text-xs">
+              <Plus size={14} className="mr-1" /> New Session
+            </button>
+          </div>
         </div>
+
+        {showHistory && (
+          <div className="bg-white shadow-sm border border-slate-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-slate-900 text-sm">Session History</h4>
+              <button
+                onClick={fetchSessions}
+                disabled={sessionsLoading}
+                className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+              >
+                <RefreshCw size={12} className={sessionsLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            {sessionsLoading && sessions.length === 0 ? (
+              <p className="text-xs text-slate-500">Loading sessions...</p>
+            ) : sessions.length === 0 ? (
+              <p className="text-xs text-slate-500">No previous sessions yet.</p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {sessions.map(session => (
+                  <button
+                    key={session.id}
+                    onClick={() => loadSession(session)}
+                    className={`w-full text-left p-2 rounded-lg border transition-colors ${
+                      session.id === jobId
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-slate-200 hover:border-orange-300 hover:bg-orange-50/40'
+                    }`}
+                  >
+                    <div className="text-xs font-medium text-slate-800 truncate">{session.query || 'Unknown query'}</div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] text-slate-500">{new Date(session.created_at).toLocaleString()}</span>
+                      {session.time_taken && (
+                        <span className="text-[10px] text-slate-400">{Math.round(session.time_taken / 1000)}s</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
           {/* Progress Header */}
@@ -164,7 +302,7 @@ export const AgentPage: React.FC = () => {
                   <div className="text-slate-200 leading-relaxed whitespace-pre-wrap font-sans text-lg">
                     {status.data.finalAnalysis}
                   </div>
-                  
+
                   {status.data.sources && status.data.sources.length > 0 && (
                     <div className="mt-12 pt-8 border-t border-slate-800">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -193,7 +331,7 @@ export const AgentPage: React.FC = () => {
                       The Firecrawl Agent is currently analyzing search results and synthesizing your report.
                     </p>
                   </div>
-                  
+
                   {/* Stats during loading */}
                   <div className="grid grid-cols-3 gap-8 mt-12 w-full max-w-sm">
                     <div className="text-center">
@@ -206,7 +344,7 @@ export const AgentPage: React.FC = () => {
                     </div>
                     <div className="text-center">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Time</p>
-                      <p className="text-xl font-bold text-white mt-1">{status?.data?.activities?.length || 0}s</p>
+                      <p className="text-xl font-bold text-white mt-1">{elapsedSeconds}s</p>
                     </div>
                   </div>
                 </div>
@@ -229,10 +367,40 @@ export const AgentPage: React.FC = () => {
         </p>
       </div>
 
+      {/* History section on main page */}
+      {sessions.length > 0 && (
+        <div className="mb-8 max-w-2xl mx-auto w-full">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h4 className="font-semibold text-slate-700 text-sm flex items-center gap-2">
+              <History size={14} /> Recent Sessions
+            </h4>
+            <button
+              onClick={fetchSessions}
+              disabled={sessionsLoading}
+              className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+            >
+              <RefreshCw size={12} className={sessionsLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {sessions.slice(0, 5).map(session => (
+              <button
+                key={session.id}
+                onClick={() => loadSession(session)}
+                className="flex-shrink-0 text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-orange-300 hover:shadow-md transition-all w-48"
+              >
+                <div className="text-xs font-medium text-slate-800 truncate">{session.query || 'Unknown query'}</div>
+                <div className="text-[10px] text-slate-500 mt-1">{new Date(session.created_at).toLocaleString()}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="relative max-w-2xl mx-auto w-full group">
         {/* Input Glow Effect */}
         <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000 group-focus-within:duration-200"></div>
-        
+
         <div className="relative bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
           <form onSubmit={runAgent} className="p-2">
             <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-100 relative">
@@ -240,16 +408,16 @@ export const AgentPage: React.FC = () => {
                 <Sparkles size={12} /> Deep Research
               </div>
               <div className="h-4 w-px bg-slate-200"></div>
-              
+
               <div className="relative">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowUrlInput(!showUrlInput)}
                   className={`text-slate-400 hover:text-slate-600 flex items-center gap-1.5 text-xs font-medium px-2 py-1.5 rounded-lg transition-colors ${showUrlInput ? 'bg-slate-100 text-slate-700' : ''}`}
                 >
                   <Plus size={14} /> Add URLs
                 </button>
-                
+
                 {showUrlInput && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-20 animate-in fade-in zoom-in-95 duration-200">
                     <input
@@ -261,8 +429,8 @@ export const AgentPage: React.FC = () => {
                       onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addUrl())}
                       autoFocus
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={addUrl}
                       className="mt-2 w-full bg-orange-500 text-white text-xs font-bold py-1.5 rounded hover:bg-orange-600 transition-colors"
                     >
@@ -273,30 +441,43 @@ export const AgentPage: React.FC = () => {
               </div>
 
               <div className="relative">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => document.getElementById('csv-upload')?.click()}
                   className="text-slate-400 hover:text-slate-600 flex items-center gap-1.5 text-xs font-medium px-2 py-1.5 rounded-lg transition-colors"
                 >
                   <FileJson size={14} /> CSV
                 </button>
-                <input 
+                <input
                   id="csv-upload"
-                  type="file" 
-                  accept=".csv,.txt" 
-                  className="hidden" 
+                  type="file"
+                  accept=".csv,.txt"
+                  className="hidden"
                   onChange={handleCsvUpload}
                 />
               </div>
             </div>
-            
-            {contextUrls.length > 0 && (
+
+            {(contextUrls.length > 0 || prefillContext) && (
               <div className="px-4 py-2 flex flex-wrap gap-2">
+                {prefillContext && (
+                  <span className="inline-flex items-center gap-1 text-[10px] bg-orange-50 text-orange-700 px-2 py-1 rounded-md border border-orange-100">
+                    <FileJson size={10} />
+                    <span>LLMs.txt context ({Math.round(prefillContext.length / 1000)}kb)</span>
+                    <button
+                      type="button"
+                      onClick={() => setPrefillContext('')}
+                      className="hover:text-orange-900 ml-1"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                )}
                 {contextUrls.map((url, i) => (
                   <span key={i} className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-md border border-blue-100">
                     <Globe size={10} />
                     <span className="max-w-[150px] truncate">{url}</span>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setContextUrls(contextUrls.filter((_, idx) => idx !== i))}
                       className="hover:text-blue-900 ml-1"
@@ -307,7 +488,7 @@ export const AgentPage: React.FC = () => {
                 ))}
               </div>
             )}
-            
+
             <div className="relative flex items-end">
               <textarea
                 value={query}
